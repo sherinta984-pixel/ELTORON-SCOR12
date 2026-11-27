@@ -143,7 +143,7 @@ function listenOnPort(server, port) {
   });
 }
 
-async async function ensureLocalServer() {
+async function ensureLocalServer() {
   if (localServer?.listening && localPort) return localPort;
 
   const distIndex = path.join(getDistDirectory(), 'index.html');
