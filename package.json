@@ -8,7 +8,7 @@
     "dev": "vite --port=3000 --host=127.0.0.1",
     "build": "vite build",
     "preview": "vite preview",
-    "app:dev": "concurrently -k \"npm:dev\" \"wait-on http://127.0.0.1:3000 && electron .\"",
+    "app:dev": "npm run build && concurrently -k \"npm:dev\" \"wait-on http://127.0.0.1:3000 && electron .\"",
     "electron:start": "electron .",
     "dist:win": "npm run build && electron-builder --win nsis --publish never",
     "lint": "tsc --noEmit"
