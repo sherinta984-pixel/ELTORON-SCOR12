@@ -1,21 +1,18 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('kabaddiDesktop', {
-  openOverlay: (host, port) =>
-    ipcRenderer.invoke('overlay:open', { host, port }),
+  startOverlayServer: (host, port) =>
+    ipcRenderer.invoke('overlay:start-server', { host, port }),
 
-  closeOverlay: () =>
-    ipcRenderer.invoke('overlay:close'),
+  stopOverlayServer: () =>
+    ipcRenderer.invoke('overlay:stop-server'),
 
-  reportOverlayStatus: (status) =>
-    ipcRenderer.send('overlay:status', {
-      connected: status?.connected === true,
-      message: typeof status?.message === 'string' ? status.message : '',
-    }),
+  copyText: (text) =>
+    ipcRenderer.invoke('app:copy-text', text),
 
-  onOverlayStatus: (callback) => {
-    const listener = (_event, status) => callback(status);
-    ipcRenderer.on('overlay:status', listener);
-    return () => ipcRenderer.removeListener('overlay:status', listener);
+  onServerStopped: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('overlay:server-stopped', listener);
+    return () => ipcRenderer.removeListener('overlay:server-stopped', listener);
   },
 });
