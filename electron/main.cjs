@@ -4,7 +4,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PREFERRED_PORT = 3210;
-const LAST_PORT = 3230;
 const TRAY_ICON_PNG = 'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAB4ElEQVR4nOWXz2vTYBjHP0kL9rKLquiYmxsT/wZBdhp0pWHFsI4VhYmn/R0exnCCm+winoZbOhZb2/1CFLx6cHguevDkwbE2TQr1MBrabHFrurwr+IVc8obn8+Ehyfu8UqgnWucCE3RbuJ8tnSvoa/zmifclZwfOG3yaSItAM9zN2Gvcassi4M6azSz5Xw/6KdEi0DDyE+6UaDCPdUB0ul9AScap/PllX6HQJXtNkiQWF57bawe/f6Ik420JuP6ITossy7x6Oc+UOgmAZVmkM0/Jbuj+CwQCAVaWXzCpJAAwTQs1/Rg9V2i7VtsCwUCQlaVFEhPjABhGlZQ6Q2Frt224J4G3b14z9vABAJWKgZKaZmfvoye4J4EG/LBcZiKp8unzF89w6OAzLJV+8G3/e0dwTwL1+tHeNXx3kA/6GuHwZbECs8/mqNVqANwbHaHwfp1I5Io4gdV3GunMrC0xMjxEMacRjV4VIwCgZXUepZ9gmhYAQ4MDFHMavb3XxAgAbOp5UuoM1aoJwJ2BfrbyGrFYnxgBgHxhGyU1jWFUAei/fYtiTuPG9diZa0ihnmhd5DwArfNH92/H/4eAc07zM8737VgH/JQ4qbYt4Da3+wFvZnXX0cxPkTMfTkXnL0gTs9aFmNKeAAAAAElFTkSuQmCC';
 
 let controlWindow = null;
@@ -26,6 +25,8 @@ const MIME_TYPES = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
+  '.vb': 'text/plain; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
 };
 
 function getDistDirectory() {
@@ -118,6 +119,7 @@ function createLocalServer() {
         'Content-Type': MIME_TYPES[extension] || 'application/octet-stream',
         'Cache-Control': extension === '.html' ? 'no-store' : 'public, max-age=3600',
         'Access-Control-Allow-Origin': '*',
+        ...(extension === '.vb' ? { 'Content-Disposition': `attachment; filename="${path.basename(targetPath)}"` } : {}),
       });
       response.end(contents);
     });
@@ -149,26 +151,21 @@ async function ensureLocalServer() {
     throw new Error('Overlay files are missing. Reinstall the application or rebuild it.');
   }
 
-  let lastError = null;
-  for (let port = PREFERRED_PORT; port <= LAST_PORT; port += 1) {
-    const candidate = createLocalServer();
-    try {
-      await listenOnPort(candidate, port);
-      localServer = candidate;
-      localPort = port;
-      localServer.on('error', (error) => {
-        console.error('Local overlay server error:', error);
-      });
-      return localPort;
-    } catch (error) {
-      lastError = error;
-      if (error.code !== 'EADDRINUSE') throw error;
+  const candidate = createLocalServer();
+  try {
+    await listenOnPort(candidate, PREFERRED_PORT);
+    localServer = candidate;
+    localPort = PREFERRED_PORT;
+    localServer.on('error', (error) => {
+      console.error('Local overlay server error:', error);
+    });
+    return localPort;
+  } catch (error) {
+    if (error.code === 'EADDRINUSE') {
+      throw new Error(`Local overlay port ${PREFERRED_PORT} is already in use. Close the other app using this port and try again.`);
     }
+    throw error;
   }
-
-  throw new Error(
-    `Could not start the local overlay server on ports ${PREFERRED_PORT}-${LAST_PORT}. ${lastError?.message || ''}`,
-  );
 }
 
 function stopLocalServer() {
