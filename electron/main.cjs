@@ -54,6 +54,20 @@ function createLocalServer() {
       return;
     }
 
+    if (pathname === '/vmix/events') {
+      response.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      });
+      response.write('retry: 1000\\n\\n');
+      if (!globalThis.__kabaddiOverlayClients) globalThis.__kabaddiOverlayClients = new Set();
+      globalThis.__kabaddiOverlayClients.add(response);
+      request.on('close', () => globalThis.__kabaddiOverlayClients.delete(response));
+      return;
+    }
+
     if (pathname === '/vmix') {
       const command = new URL(request.url || '/', 'http://127.0.0.1').searchParams.get('cmd') || '';
       const allowedCommands = new Set(['IN', 'OUT', 'TEAM_A_MINUS', 'TEAM_A_PLUS', 'TEAM_B_MINUS', 'TEAM_B_PLUS']);
@@ -69,26 +83,11 @@ function createLocalServer() {
         'Cache-Control': 'no-store',
       });
       response.end('OK');
-      // Notify open overlay Browser Source tabs without exposing desktop windows.
-      if (typeof globalThis.__kabaddiOverlayClients !== 'undefined') {
+      if (globalThis.__kabaddiOverlayClients) {
         for (const client of globalThis.__kabaddiOverlayClients) {
           try { client.write(`data: ${payload}\\n\\n`); } catch {}
         }
       }
-      return;
-    }
-
-    if (pathname === '/vmix/events') {
-      response.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-      });
-      response.write('retry: 1000\\n\\n');
-      if (!globalThis.__kabaddiOverlayClients) globalThis.__kabaddiOverlayClients = new Set();
-      globalThis.__kabaddiOverlayClients.add(response);
-      request.on('close', () => globalThis.__kabaddiOverlayClients.delete(response));
       return;
     }
 
