@@ -865,3 +865,68 @@ body,
   .setup-card { padding: 16px; }
   .setup-header h1 { font-size: 18px; }
 }
+
+
+/* OBS Browser Source URL output */
+.browser-url-panel {
+  margin-top: 17px;
+  padding: 12px;
+  background: rgba(2, 6, 23, 0.78);
+  border: 1px solid rgba(56, 189, 248, 0.23);
+  border-radius: 10px;
+}
+.browser-url-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.url-ready {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #86efac;
+  letter-spacing: 0.06em;
+}
+.browser-url-value {
+  max-height: 64px;
+  overflow-wrap: anywhere;
+  color: #bae6fd;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.55;
+  user-select: text;
+}
+.copy-url-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  margin-top: 10px;
+  padding: 0 11px;
+  color: #07111d;
+  background: #7dd3fc;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.copy-url-button:hover {
+  background: #bae6fd;
+}
+.error-message {
+  margin-top: 14px;
+  padding: 10px 11px;
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.22);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+}
