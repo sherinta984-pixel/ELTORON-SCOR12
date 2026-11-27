@@ -1,8 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('kabaddiDesktop', {
-  startOverlayServer: (host, port) =>
-    ipcRenderer.invoke('overlay:start-server', { host, port }),
+  startOverlayServer: (host, port, design, halfLabel) =>
+    ipcRenderer.invoke('overlay:start-server', { host, port, design, halfLabel }),
 
   stopOverlayServer: () =>
     ipcRenderer.invoke('overlay:stop-server'),
