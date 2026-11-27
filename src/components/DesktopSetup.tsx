@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   CheckCircle2,
-  Clipboard,
   Copy,
-  ExternalLink,
+  Download,
   Info,
   Monitor,
   Radio,
@@ -12,9 +11,21 @@ import {
   Wifi,
 } from 'lucide-react';
 
+type OverlayDesign = 'exact' | 'turbo';
+
 const HOST_STORAGE_KEY = 'kabaddi-overlay-controller-host';
 const PORT_STORAGE_KEY = 'kabaddi-overlay-controller-port';
 const HALF_LABEL_STORAGE_KEY = 'kabaddi-overlay-half-label';
+const DESIGN_STORAGE_KEY = 'kabaddi-overlay-design';
+
+const VMIX_SCRIPTS = [
+  { command: 'IN', file: 'Turbo_Overlay_IN.vb', title: 'Overlay IN', key: 'Your chosen key' },
+  { command: 'OUT', file: 'Turbo_Overlay_OUT.vb', title: 'Overlay OUT', key: 'Your chosen key' },
+  { command: 'TEAM_A_MINUS', file: 'Team_A_Player_Minus.vb', title: 'Team A · Player −', key: 'Your chosen key' },
+  { command: 'TEAM_A_PLUS', file: 'Team_A_Player_Plus.vb', title: 'Team A · Player +', key: 'Your chosen key' },
+  { command: 'TEAM_B_MINUS', file: 'Team_B_Player_Minus.vb', title: 'Team B · Player −', key: 'Your chosen key' },
+  { command: 'TEAM_B_PLUS', file: 'Team_B_Player_Plus.vb', title: 'Team B · Player +', key: 'Your chosen key' },
+];
 
 export function DesktopSetup() {
   const [host, setHost] = useState(() => {
@@ -38,6 +49,13 @@ export function DesktopSetup() {
       return '1ST HALF';
     }
   });
+  const [design, setDesign] = useState<OverlayDesign>(() => {
+    try {
+      return localStorage.getItem(DESIGN_STORAGE_KEY) === 'turbo' ? 'turbo' : 'exact';
+    } catch {
+      return 'exact';
+    }
+  });
   const [serverRunning, setServerRunning] = useState(false);
   const [sourceUrl, setSourceUrl] = useState('');
   const [busy, setBusy] = useState(false);
@@ -56,6 +74,7 @@ export function DesktopSetup() {
   const startServer = async () => {
     const cleanHost = host.trim();
     const cleanPort = Number(port);
+    const cleanLabel = halfLabel.trim();
 
     if (!cleanHost) {
       setError('Enter the IP address of the computer running your existing Python Kabaddi scoreboard.');
@@ -69,7 +88,7 @@ export function DesktopSetup() {
       setError('Port must be a number between 1 and 65535.');
       return;
     }
-    if (halfLabel.trim().length > 18) {
+    if (cleanLabel.length > 18) {
       setError('Half-time label must be 18 characters or fewer.');
       return;
     }
@@ -83,8 +102,12 @@ export function DesktopSetup() {
     setError('');
     setNotice('');
     try {
-      const cleanLabel = halfLabel.trim();
-      const result = await window.kabaddiDesktop.startOverlayServer(cleanHost, cleanPort, cleanLabel);
+      const result = await window.kabaddiDesktop.startOverlayServer(
+        cleanHost,
+        cleanPort,
+        design,
+        cleanLabel,
+      );
       if (!result.ok || !result.url) {
         setError(result.message || 'Could not start the local overlay server.');
         return;
@@ -94,8 +117,9 @@ export function DesktopSetup() {
         localStorage.setItem(HOST_STORAGE_KEY, cleanHost);
         localStorage.setItem(PORT_STORAGE_KEY, String(cleanPort));
         localStorage.setItem(HALF_LABEL_STORAGE_KEY, cleanLabel);
+        localStorage.setItem(DESIGN_STORAGE_KEY, design);
       } catch {
-        // The URL remains available for this session if local storage is disabled.
+        // The generated URL is still usable for this session.
       }
 
       setSourceUrl(result.url);
@@ -120,11 +144,14 @@ export function DesktopSetup() {
     }
   };
 
-  const copyUrl = async () => {
-    if (!sourceUrl || !window.kabaddiDesktop) return;
-    const result = await window.kabaddiDesktop.copyText(sourceUrl);
-    setNotice(result.ok ? 'OBS Browser Source URL copied.' : 'Could not copy URL.');
+  const copyText = async (value: string, successMessage: string) => {
+    if (!window.kabaddiDesktop) return;
+    const result = await window.kabaddiDesktop.copyText(value);
+    setNotice(result.ok ? successMessage : 'Could not copy text.');
   };
+
+  const sourceBase = sourceUrl ? sourceUrl.slice(0, sourceUrl.indexOf('/overlay')) : '';
+  const vmixBaseUrl = sourceBase ? `${sourceBase}/vmix?cmd=` : '';
 
   return (
     <div className="setup-page">
@@ -179,7 +206,22 @@ export function DesktopSetup() {
             value={port}
             onChange={(event) => setPort(event.target.value)}
           />
-          <p className="field-help">Keep this at 8765 for your current Python scoreboard.</p>
+          <p className="field-help">Keep this at 8765 for your existing Python scoreboard.</p>
+
+          <label className="field-label" htmlFor="overlay-design">Scoreboard design</label>
+          <select
+            id="overlay-design"
+            className="setup-input design-select"
+            value={design}
+            onChange={(event) => setDesign(event.target.value as OverlayDesign)}
+          >
+            <option value="exact">Design 1 — SV MEDIA Cyber Armour</option>
+            <option value="turbo">Design 2 — Turbo Crystal · vMix controls</option>
+          </select>
+          <p className="field-help">
+            Design 1 keeps its original animation and layout. Design 2 adds its own mechanical reveal,
+            player counters and vMix key controls.
+          </p>
 
           <label className="field-label" htmlFor="half-time-label">Half-time / period label</label>
           <input
@@ -192,7 +234,10 @@ export function DesktopSetup() {
             value={halfLabel}
             onChange={(event) => setHalfLabel(event.target.value)}
           />
-          <p className="field-help">This appears inside the centre timer shield, above the clock. You can enter any short label or leave it blank.</p>
+          <p className="field-help">
+            This label appears on the selected design. Enter text such as 1ST HALF, 2ND HALF,
+            QUARTER 1 or FINAL.
+          </p>
 
           {error && <div className="error-message" role="alert">{error}</div>}
           {notice && <div className="connection-status"><Wifi size={17} /><span>{notice}</span></div>}
@@ -205,7 +250,7 @@ export function DesktopSetup() {
               disabled={busy}
             >
               <Server size={17} />
-              {busy ? 'Starting…' : serverRunning ? 'Update IP / Refresh URL' : 'Start Overlay Service'}
+              {busy ? 'Starting…' : serverRunning ? 'Update Settings / Refresh URL' : 'Start Overlay Service'}
             </button>
             <button
               className="secondary-action"
@@ -225,12 +270,100 @@ export function DesktopSetup() {
                 <span className="url-ready"><CheckCircle2 size={13} /> READY</span>
               </div>
               <div className="browser-url-value">{sourceUrl}</div>
-              <button className="copy-url-button" type="button" onClick={() => void copyUrl()}>
+              <button
+                className="copy-url-button"
+                type="button"
+                onClick={() => void copyText(sourceUrl, 'OBS Browser Source URL copied.')}
+              >
                 <Copy size={15} /> Copy OBS URL
               </button>
             </div>
           )}
         </section>
+
+        {design === 'turbo' && (
+          <section className="setup-card vmix-card">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">DESIGN 2 ONLY</p>
+                <h2>vMix animation & player controls</h2>
+              </div>
+              <Monitor size={21} className="muted-icon" />
+            </div>
+
+            <p className="field-help vmix-intro">
+              Download these six VB.NET scripts, add each one under vMix Settings → Scripting,
+              then create a Shortcut with Function <strong>ScriptStart</strong> and assign a key.
+              The four player scripts affect only the Turbo design and keep each count between 0 and 7.
+            </p>
+
+            <div className="vmix-script-group">
+              <h3>Animation</h3>
+              {VMIX_SCRIPTS.slice(0, 2).map((script) => (
+                <div className="vmix-script-row" key={script.command}>
+                  <div>
+                    <strong>{script.title}</strong>
+                    <span>{script.file}</span>
+                  </div>
+                  {sourceBase && (
+                    <a
+                      className="script-download"
+                      href={`${sourceBase}/vmix-scripts/${script.file}`}
+                      download
+                    >
+                      <Download size={14} /> Download
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="vmix-script-group">
+              <h3>Players on court · Four separate keys</h3>
+              {VMIX_SCRIPTS.slice(2).map((script) => (
+                <div className="vmix-script-row" key={script.command}>
+                  <div>
+                    <strong>{script.title}</strong>
+                    <span>{script.file}</span>
+                  </div>
+                  {sourceBase && (
+                    <a
+                      className="script-download"
+                      href={`${sourceBase}/vmix-scripts/${script.file}`}
+                      download
+                    >
+                      <Download size={14} /> Download
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {vmixBaseUrl && (
+              <div className="vmix-endpoint-panel">
+                <div className="browser-url-heading">
+                  <span>VMIX COMMAND BASE URL</span>
+                  <span className="url-ready"><CheckCircle2 size={13} /> LOCAL</span>
+                </div>
+                <div className="browser-url-value">{vmixBaseUrl}[COMMAND]</div>
+                <button
+                  className="copy-url-button"
+                  type="button"
+                  onClick={() => void copyText(vmixBaseUrl, 'vMix command base URL copied.')}
+                >
+                  <Copy size={15} /> Copy command base URL
+                </button>
+              </div>
+            )}
+
+            <div className="tip-box">
+              <Info size={17} />
+              <p>Use Design 2 in the selector and start the service before triggering vMix shortcuts.
+              Design 1 does not listen for these vMix commands. vMix VB.NET Scripting is available in
+              vMix 4K and Pro editions.</p>
+            </div>
+          </section>
+        )}
 
         <section className="setup-card howto-card">
           <div className="section-heading">
@@ -242,13 +375,13 @@ export function DesktopSetup() {
           </div>
           <ol className="steps-list">
             <li><span>1</span><p>Start your existing Python Kabaddi scoreboard on the operator computer.</p></li>
-            <li><span>2</span><p>Enter its IP address above, keep port <strong>8765</strong>, then click <strong>Start Overlay Service</strong>.</p></li>
-            <li><span>3</span><p>Copy the generated URL and add a <strong>Browser Source</strong> in OBS. Paste the URL there.</p></li>
+            <li><span>2</span><p>Enter its IP address above, keep port <strong>8765</strong>, choose a design and click <strong>Start Overlay Service</strong>.</p></li>
+            <li><span>3</span><p>Copy the generated URL and add a <strong>Browser Source</strong> in OBS. Paste the URL.</p></li>
             <li><span>4</span><p>Set Browser Source dimensions to <strong>1920 × 1080</strong> and keep its background transparent.</p></li>
           </ol>
           <div className="tip-box">
             <Info size={17} />
-            <p>The scoreboard graphic will appear inside OBS only. It will not cover your Windows desktop. Close this settings window to send the app to the system tray; the local server will keep running.</p>
+            <p>The graphic appears inside OBS only, not over your Windows desktop. Close this settings window to send the app to the system tray; the local server will keep running.</p>
           </div>
         </section>
 
