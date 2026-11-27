@@ -1,0 +1,6 @@
+{
+  "name": "Broadcast Scoreboard Studio",
+  "description": "Precision broadcast scoreboard overlay and live match controller.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
