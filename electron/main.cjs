@@ -251,6 +251,10 @@ ipcMain.handle('overlay:start-server', async (_event, payload) => {
     sourceUrl.searchParams.set('overlay', '1');
     sourceUrl.searchParams.set('host', host);
     sourceUrl.searchParams.set('port', String(port));
+    const selectedDesign = payload?.design === 'turbo' ? 'turbo' : 'exact';
+    sourceUrl.searchParams.set('design', selectedDesign);
+    const halfLabel = typeof payload?.halfLabel === 'string' ? payload.halfLabel.slice(0, 18) : '1ST HALF';
+    sourceUrl.searchParams.set('halfLabel', halfLabel);
 
     if (tray) tray.setToolTip('Kabaddi Scoreboard Overlay — OBS source ready');
     return {
