@@ -22,6 +22,10 @@ interface BroadcastBugProps {
   isDoOrDie?: boolean;
   isSuperTackle?: boolean;
   isRaidClockRunning?: boolean;
+  halfLabel?: string;
+  playerCountA?: number;
+  playerCountB?: number;
+  animationCommand?: 'IN' | 'OUT';
 }
 
 const VIEWBOX_WIDTH = 2560;
@@ -83,6 +87,10 @@ export function BroadcastBug({
   isDoOrDie = false,
   isSuperTackle = false,
   isRaidClockRunning = false,
+  halfLabel = '1ST HALF',
+  playerCountA,
+  playerCountB,
+  animationCommand = 'IN',
 }: BroadcastBugProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -114,6 +122,9 @@ export function BroadcastBug({
   const formattedScoreA = String(teamA.score).padStart(2, '0');
   const formattedScoreB = String(teamB.score).padStart(2, '0');
   const formattedRaid = formatRaidClock(raidClockSeconds);
+  const activePlayersA = Math.max(0, Math.min(7, playerCountA ?? teamA.onMat));
+  const activePlayersB = Math.max(0, Math.min(7, playerCountB ?? teamB.onMat));
+  const isOut = animationCommand === 'OUT';
   const raidRatio =
     raidDurationSeconds > 0
       ? Math.max(0, Math.min(1, raidClockSeconds / raidDurationSeconds))
@@ -133,9 +144,9 @@ export function BroadcastBug({
       data-testid="broadcast-bug"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.35, ease: 'easeInOut' }}
+      initial={false}
+      animate={{ opacity: isOut ? 0 : 1 }}
+      transition={{ duration: 0.32, ease: [0.42, 0, 0.25, 1] }}
       className="relative w-full max-w-[1440px] select-none"
       style={{ perspective: '1800px' }}
     >
@@ -592,8 +603,8 @@ export function BroadcastBug({
           <g clipPath="url(#reveal-left-half)">
             <g id="left-wing">
               <motion.g
-                initial={{ x: 860, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
+                initial={false}
+                animate={isOut ? { x: 860, opacity: 0 } : { x: 0, opacity: 1 }}
                 transition={{ duration: 0.96, delay: 0.44, ease: [0.42, 0, 0.25, 1] }}
               >
                 <use href="#turbo-wing-frame" />
@@ -605,8 +616,8 @@ export function BroadcastBug({
               {/* LEFT SCORE PLATE — Tier-1 Slide-Out & Interlock */}
               <motion.g
                 id="left-score-plate"
-                initial={{ x: 240, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
+                initial={false}
+                animate={isOut ? { x: 240, opacity: 0 } : { x: 0, opacity: 1 }}
                 transition={{ duration: 0.72, delay: 0.3, ease: [0.42, 0, 0.25, 1] }}
               >
                 <path
@@ -644,8 +655,8 @@ export function BroadcastBug({
           <g clipPath="url(#reveal-right-half)">
             <g id="right-wing">
               <motion.g
-                initial={{ x: -860, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
+                initial={false}
+                animate={isOut ? { x: -860, opacity: 0 } : { x: 0, opacity: 1 }}
                 transition={{ duration: 0.96, delay: 0.44, ease: [0.42, 0, 0.25, 1] }}
               >
                 <g transform={`translate(${VIEWBOX_WIDTH} 0) scale(-1 1)`}>
@@ -659,8 +670,8 @@ export function BroadcastBug({
               {/* RIGHT SCORE PLATE — Tier-1 Mirrored Slide-Out & Interlock */}
               <motion.g
                 id="right-score-plate"
-                initial={{ x: -240, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
+                initial={false}
+                animate={isOut ? { x: -240, opacity: 0 } : { x: 0, opacity: 1 }}
                 transition={{ duration: 0.72, delay: 0.3, ease: [0.42, 0, 0.25, 1] }}
               >
                 <path
@@ -1080,7 +1091,7 @@ export function BroadcastBug({
             </g>
             <g transform="translate(388 256)">
               {[0, 1, 2, 3, 4, 5, 6].map((idx) => {
-                const active = idx < teamA.onMat;
+                const active = idx < activePlayersA;
                 const xOff = idx * 64;
                 return (
                   <motion.g
@@ -1190,7 +1201,7 @@ export function BroadcastBug({
             </g>
             <g transform="translate(1736 256)">
               {[0, 1, 2, 3, 4, 5, 6].map((idx) => {
-                const active = idx < teamB.onMat;
+                const active = idx < activePlayersB;
                 const xOff = (6 - idx) * 64;
                 return (
                   <motion.g
@@ -1247,8 +1258,8 @@ export function BroadcastBug({
           {/* CENTRAL MATCH STATE: HALF & HUGE HEROIC SOLID-OPACITY RAID TIMER */}
           <motion.g
             id="match-state"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
+            initial={false}
+            animate={isOut ? { opacity: 0, scale: 0.8 } : { opacity: 1, scale: 1 }}
             transition={{ duration: 0.52, delay: 0.38, ease: [0.42, 0, 0.25, 1] }}
             style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
           >
