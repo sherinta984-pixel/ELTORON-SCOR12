@@ -62,7 +62,7 @@ function createLocalServer() {
         Connection: 'keep-alive',
         'Access-Control-Allow-Origin': '*',
       });
-      response.write('retry: 1000\\n\\n');
+      response.write('retry: 1000\n\n');
       if (!globalThis.__kabaddiOverlayClients) globalThis.__kabaddiOverlayClients = new Set();
       globalThis.__kabaddiOverlayClients.add(response);
       request.on('close', () => globalThis.__kabaddiOverlayClients.delete(response));
@@ -86,7 +86,7 @@ function createLocalServer() {
       response.end('OK');
       if (globalThis.__kabaddiOverlayClients) {
         for (const client of globalThis.__kabaddiOverlayClients) {
-          try { client.write(`data: ${payload}\\n\\n`); } catch {}
+          try { client.write(`data: ${payload}\n\n`); } catch {}
         }
       }
       return;
@@ -143,7 +143,7 @@ function listenOnPort(server, port) {
   });
 }
 
-async function ensureLocalServer() {
+async async function ensureLocalServer() {
   if (localServer?.listening && localPort) return localPort;
 
   const distIndex = path.join(getDistDirectory(), 'index.html');
