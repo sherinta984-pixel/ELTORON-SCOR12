@@ -1,34 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ExactScoreboard } from './ExactScoreboard';
 import { BroadcastBug } from './BroadcastBug';
-import {
-  INITIAL_SCOREBOARD_STATE,
-} from '../data/presets';
-import type {
-  RaidingTeam,
-  ScoreboardState,
-} from '../types/scoreboard';
-
-const INITIAL_OVERLAY_STATE: ScoreboardState = {
-  ...INITIAL_SCOREBOARD_STATE,
-  left: { ...INITIAL_SCOREBOARD_STATE.left, name: 'TEAM 1', score: 0 },
-  right: { ...INITIAL_SCOREBOARD_STATE.right, name: 'TEAM 2', score: 0 },
-  clock: {
-    ...INITIAL_SCOREBOARD_STATE.clock,
-    mode: 'countdown',
-    durationSeconds: 30,
-    seconds: 30,
-    running: false,
-    twoDigitSeconds: true,
-    showTenthsUnder10: false,
-  },
-  center: {
-    ...INITIAL_SCOREBOARD_STATE.center,
-    topCrownText: 'SV MEDIA',
-    centerSubText: '',
-    bottomBaseText: '',
-  },
-};
+import { INITIAL_SCOREBOARD_STATE } from '../data/presets';
+import type { RaidingTeam, ScoreboardState } from '../types/scoreboard';
+import type { MatchPhase, TeamState } from '../types/kabaddi';
 
 type ControllerMessage = {
   team1_name?: unknown;
@@ -39,6 +14,14 @@ type ControllerMessage = {
   timer_running?: unknown;
   raiding_team?: unknown;
 };
+
+type VmixCommand =
+  | 'IN'
+  | 'OUT'
+  | 'TEAM_A_MINUS'
+  | 'TEAM_A_PLUS'
+  | 'TEAM_B_MINUS'
+  | 'TEAM_B_PLUS';
 
 function parseTimer(value: unknown): number | null {
   if (typeof value === 'number') {
@@ -105,59 +88,32 @@ export function OverlayScreen() {
     return `${protocol}://${host}:${port}`;
   }, [host, port]);
 
-  const [scoreboard, setScoreboard] = useState<ScoreboardState>(INITIAL_OVERLAY_STATE);
+  const [scoreboard, setScoreboard] = useState<ScoreboardState>(() => ({
+    ...INITIAL_SCOREBOARD_STATE,
+    left: { ...INITIAL_SCOREBOARD_STATE.left, name: 'TEAM 1', score: 0 },
+    right: { ...INITIAL_SCOREBOARD_STATE.right, name: 'TEAM 2', score: 0 },
+    clock: {
+      ...INITIAL_SCOREBOARD_STATE.clock,
+      mode: 'countdown',
+      durationSeconds: 30,
+      seconds: 30,
+      running: false,
+      twoDigitSeconds: true,
+      showTenthsUnder10: false,
+    },
+    center: {
+      ...INITIAL_SCOREBOARD_STATE.center,
+      topCrownText: halfLabel,
+      centerSubText: '',
+      bottomBaseText: '',
+    },
+  }));
+
+  // These four player-count commands and the IN/OUT animation are Turbo-only.
+  const [teamAPlayers, setTeamAPlayers] = useState(7);
+  const [teamBPlayers, setTeamBPlayers] = useState(7);
+  const [animationCycle, setAnimationCycle] = useState(0);
   const [animationCommand, setAnimationCommand] = useState<'IN' | 'OUT'>('IN');
-  const [visible, setVisible] = useState(true);
-  const [teamACount, setTeamACount] = useState(7);
-  const [teamBCount, setTeamBCount] = useState(7);
-  const [stinger, setStinger] = useState({ commandId: '', label: '' });
-
-  useEffect(() => {
-    // vMix commands are listened to only by Design 2. The original Design 1 is not affected.
-    if (design !== 'turbo') return;
-
-    const onVmixCommand = (command: string) => {
-      if (command === 'IN' || command === 'OUT') {
-        setAnimationCommand(command);
-        setVisible(command === 'IN');
-      } else if (command === 'TEAM_A_MINUS') {
-        setTeamACount((v) => Math.max(0, v - 1));
-      } else if (command === 'TEAM_A_PLUS') {
-        setTeamACount((v) => Math.min(7, v + 1));
-      } else if (command === 'TEAM_B_MINUS') {
-        setTeamBCount((v) => Math.max(0, v - 1));
-      } else if (command === 'TEAM_B_PLUS') {
-        setTeamBCount((v) => Math.min(7, v + 1));
-      }
-    };
-
-    const events = new EventSource('/vmix/events');
-    events.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (typeof payload.command === 'string') onVmixCommand(payload.command);
-      } catch {
-        // Ignore malformed vMix events.
-      }
-    };
-
-    const onMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      const command = typeof event.data === 'string' ? event.data : event.data?.command;
-      if (typeof command === 'string') onVmixCommand(command);
-    };
-    window.addEventListener('message', onMessage);
-    return () => {
-      events.close();
-      window.removeEventListener('message', onMessage);
-    };
-  }, [design]);
-
-  useEffect(() => {
-    if (design !== 'turbo') return;
-    if (animationCommand === 'IN') setVisible(true);
-    if (animationCommand === 'OUT') setVisible(false);
-  }, [animationCommand, design]);
 
   useEffect(() => {
     let socket: WebSocket | null = null;
@@ -221,9 +177,6 @@ export function OverlayScreen() {
         }
       };
 
-      socket.onerror = () => {
-      };
-
       socket.onclose = () => {
         if (!stopped) reconnectTimer = window.setTimeout(connect, 2000);
       };
@@ -239,35 +192,77 @@ export function OverlayScreen() {
   }, [host, port, websocketUrl]);
 
   useEffect(() => {
-    if (design !== 'exact') return;
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === 'kabaddi-overlay-half-label') {
-        setScoreboard((current) => ({
-          ...current,
-          center: { ...current.center, topCrownText: event.newValue || ' ' },
-        }));
+    // Do not attach any vMix command listeners to Design 1.
+    if (design !== 'turbo') return;
+
+    const applyCommand = (command: VmixCommand) => {
+      switch (command) {
+        case 'IN':
+          setAnimationCommand('IN');
+          // Remount only the Turbo graphic so its original mechanical intro replays.
+          setAnimationCycle((cycle) => cycle + 1);
+          break;
+        case 'OUT':
+          setAnimationCommand('OUT');
+          break;
+        case 'TEAM_A_MINUS':
+          setTeamAPlayers((count) => Math.max(0, count - 1));
+          break;
+        case 'TEAM_A_PLUS':
+          setTeamAPlayers((count) => Math.min(7, count + 1));
+          break;
+        case 'TEAM_B_MINUS':
+          setTeamBPlayers((count) => Math.max(0, count - 1));
+          break;
+        case 'TEAM_B_PLUS':
+          setTeamBPlayers((count) => Math.min(7, count + 1));
+          break;
       }
     };
-    return () => window.removeEventListener('storage', onStorage);
+
+    const events = new EventSource('/vmix/events');
+    events.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as { command?: VmixCommand };
+        if (
+          payload.command === 'IN' ||
+          payload.command === 'OUT' ||
+          payload.command === 'TEAM_A_MINUS' ||
+          payload.command === 'TEAM_A_PLUS' ||
+          payload.command === 'TEAM_B_MINUS' ||
+          payload.command === 'TEAM_B_PLUS'
+        ) {
+          applyCommand(payload.command);
+        }
+      } catch {
+        // Ignore malformed vMix event messages.
+      }
+    };
+
+    return () => events.close();
   }, [design]);
 
   useEffect(() => {
     if (design !== 'exact') return;
-    if (halfLabel !== null) {
-      setScoreboard((current) => ({
-        ...current,
-        center: { ...current.center, topCrownText: halfLabel },
-      }));
-    }
+    setScoreboard((current) => ({
+      ...current,
+      center: { ...current.center, topCrownText: halfLabel },
+    }));
   }, [design, halfLabel]);
 
-  const teamA = {
-    id: 'A' as const,
+  const phase: MatchPhase =
+    halfLabel.toUpperCase().includes('2ND') ||
+    halfLabel.toUpperCase().includes('SECOND')
+      ? 'SECOND_HALF'
+      : 'FIRST_HALF';
+
+  const teamA: TeamState = {
+    id: 'A',
     name: scoreboard.left.name,
     shortCode: scoreboard.left.name.slice(0, 3).toUpperCase(),
     color: '#E52C40',
     score: scoreboard.left.score,
-    onMat: teamACount,
+    onMat: teamAPlayers,
     emptyRaidStreak: 0,
     timeoutsLeft: 0,
     reviewsLeft: 0,
@@ -275,13 +270,14 @@ export function OverlayScreen() {
     allOutsInflicted: 0,
     breakdown: { raid: 0, tackle: 0, bonus: 0, allOut: 0, extra: 0 },
   };
-  const teamB = {
-    id: 'B' as const,
+
+  const teamB: TeamState = {
+    id: 'B',
     name: scoreboard.right.name,
     shortCode: scoreboard.right.name.slice(0, 3).toUpperCase(),
     color: '#287CDB',
     score: scoreboard.right.score,
-    onMat: teamBCount,
+    onMat: teamBPlayers,
     emptyRaidStreak: 0,
     timeoutsLeft: 0,
     reviewsLeft: 0,
@@ -289,15 +285,13 @@ export function OverlayScreen() {
     allOutsInflicted: 0,
     breakdown: { raid: 0, tackle: 0, bonus: 0, allOut: 0, extra: 0 },
   };
-  const phase = (halfLabel.toUpperCase().includes('2ND') || halfLabel.toUpperCase().includes('SECOND')
-      ? 'SECOND_HALF'
-      : 'FIRST_HALF') as 'FIRST_HALF' | 'SECOND_HALF';
 
   return (
     <main className={`overlay-viewport overlay-design-${design}`} aria-label="Kabaddi scoreboard overlay">
-      <div className={`overlay-frame ${visible ? 'overlay-visible' : 'overlay-hidden'}`}>
+      <div className="overlay-frame">
         {design === 'turbo' ? (
           <BroadcastBug
+            key={animationCycle}
             teamA={teamA}
             teamB={teamB}
             phase={phase}
@@ -306,12 +300,10 @@ export function OverlayScreen() {
             raidingTeam={scoreboard.raidingTeam === 'right' ? 'B' : 'A'}
             isRaidClockRunning={scoreboard.clock.running}
             halfLabel={halfLabel}
-            playerCountA={teamACount}
-            playerCountB={teamBCount}
             animationCommand={animationCommand}
           />
         ) : (
-          <ExactScoreboard state={scoreboard} introTrigger={animationCommand === 'IN' ? 1 : 0} />
+          <ExactScoreboard state={scoreboard} />
         )}
       </div>
     </main>
