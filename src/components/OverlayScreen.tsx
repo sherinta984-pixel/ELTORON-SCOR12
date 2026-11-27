@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ExactScoreboard } from './ExactScoreboard';
+import { BroadcastBug } from './BroadcastBug';
 import {
   INITIAL_SCOREBOARD_STATE,
 } from '../data/presets';
@@ -95,6 +96,7 @@ function parseRaidingTeam(value: unknown): RaidingTeam | null {
 
 export function OverlayScreen() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
+  const design = params.get('design') === 'turbo' ? 'turbo' : 'exact';
   const host = (params.get('host') || '127.0.0.1').trim();
   const port = (params.get('port') || '8765').trim();
   const websocketUrl = useMemo(() => {
@@ -103,6 +105,50 @@ export function OverlayScreen() {
   }, [host, port]);
 
   const [scoreboard, setScoreboard] = useState<ScoreboardState>(INITIAL_OVERLAY_STATE);
+  const [animationCommand, setAnimationCommand] = useState<'IN' | 'OUT'>('IN');
+  const [visible, setVisible] = useState(true);
+  const [teamACount, setTeamACount] = useState(7);
+  const [teamBCount, setTeamBCount] = useState(7);
+  const [stinger, setStinger] = useState({ commandId: '', label: '' });
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data;
+      const command = typeof data === 'string' ? data : data?.command;
+      if (command === 'IN' || command === 'OUT') {
+        setAnimationCommand(command);
+        setVisible(command === 'IN');
+      }
+      if (command === 'TEAM_A_MINUS') setTeamACount((v) => Math.max(0, v - 1));
+      if (command === 'TEAM_A_PLUS') setTeamACount((v) => Math.min(7, v + 1));
+      if (command === 'TEAM_B_MINUS') setTeamBCount((v) => Math.max(0, v - 1));
+      if (command === 'TEAM_B_PLUS') setTeamBCount((v) => Math.min(7, v + 1));
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== 'kabaddi-overlay-vmix-command' || !event.newValue) return;
+      try {
+        const payload = JSON.parse(event.newValue);
+        const command = payload.command;
+        if (command === 'IN' || command === 'OUT') {
+          setAnimationCommand(command);
+          setVisible(command === 'IN');
+        }
+        if (command === 'TEAM_A_MINUS') setTeamACount((v) => Math.max(0, v - 1));
+        if (command === 'TEAM_A_PLUS') setTeamACount((v) => Math.min(7, v + 1));
+        if (command === 'TEAM_B_MINUS') setTeamBCount((v) => Math.max(0, v - 1));
+        if (command === 'TEAM_B_PLUS') setTeamBCount((v) => Math.min(7, v + 1));
+      } catch {
+        // Invalid command payloads are ignored.
+      }
+    };
+    window.addEventListener('message', onMessage);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
 
   useEffect(() => {
     let socket: WebSocket | null = null;
@@ -183,10 +229,77 @@ export function OverlayScreen() {
     };
   }, [host, port, websocketUrl]);
 
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === 'kabaddi-overlay-half-label') {
+        setScoreboard((current) => ({
+          ...current,
+          center: { ...current.center, topCrownText: event.newValue || ' ' },
+        }));
+      }
+    };
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  useEffect(() => {
+    const label = params.get('halfLabel');
+    if (label !== null) {
+      setScoreboard((current) => ({
+        ...current,
+        center: { ...current.center, topCrownText: label },
+      }));
+    }
+  }, [params]);
+
+  const teamA = {
+    id: 'A' as const,
+    name: scoreboard.left.name,
+    shortCode: scoreboard.left.name.slice(0, 3).toUpperCase(),
+    color: '#E52C40',
+    score: scoreboard.left.score,
+    onMat: teamACount,
+    emptyRaidStreak: 0,
+    timeoutsLeft: 0,
+    reviewsLeft: 0,
+    allOutsConceded: 0,
+    allOutsInflicted: 0,
+    breakdown: { raid: 0, tackle: 0, bonus: 0, allOut: 0, extra: 0 },
+  };
+  const teamB = {
+    id: 'B' as const,
+    name: scoreboard.right.name,
+    shortCode: scoreboard.right.name.slice(0, 3).toUpperCase(),
+    color: '#287CDB',
+    score: scoreboard.right.score,
+    onMat: teamBCount,
+    emptyRaidStreak: 0,
+    timeoutsLeft: 0,
+    reviewsLeft: 0,
+    allOutsConceded: 0,
+    allOutsInflicted: 0,
+    breakdown: { raid: 0, tackle: 0, bonus: 0, allOut: 0, extra: 0 },
+  };
+  const phase = (scoreboard.center.topCrownText.toUpperCase().includes('2ND') ||
+    scoreboard.center.topCrownText.toUpperCase().includes('SECOND')
+      ? 'SECOND_HALF'
+      : 'FIRST_HALF') as 'FIRST_HALF' | 'SECOND_HALF';
+
   return (
-    <main className="overlay-viewport" aria-label="Kabaddi scoreboard overlay">
-      <div className="overlay-frame">
-        <ExactScoreboard state={scoreboard} />
+    <main className={`overlay-viewport overlay-design-${design}`} aria-label="Kabaddi scoreboard overlay">
+      <div className={`overlay-frame ${visible ? 'overlay-visible' : 'overlay-hidden'}`}>
+        {design === 'turbo' ? (
+          <BroadcastBug
+            teamA={teamA}
+            teamB={teamB}
+            phase={phase}
+            raidClockSeconds={scoreboard.clock.seconds}
+            raidDurationSeconds={scoreboard.clock.durationSeconds || 30}
+            raidingTeam={scoreboard.raidingTeam === 'right' ? 'B' : 'A'}
+            isRaidClockRunning={scoreboard.clock.running}
+          />
+        ) : (
+          <ExactScoreboard state={scoreboard} introTrigger={animationCommand === 'IN' ? 1 : 0} />
+        )}
       </div>
     </main>
   );
