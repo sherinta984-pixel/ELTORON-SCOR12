@@ -97,6 +97,7 @@ function parseRaidingTeam(value: unknown): RaidingTeam | null {
 export function OverlayScreen() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const design = params.get('design') === 'turbo' ? 'turbo' : 'exact';
+  const halfLabel = params.get('halfLabel') ?? '1ST HALF';
   const host = (params.get('host') || '127.0.0.1').trim();
   const port = (params.get('port') || '8765').trim();
   const websocketUrl = useMemo(() => {
@@ -112,43 +113,51 @@ export function OverlayScreen() {
   const [stinger, setStinger] = useState({ commandId: '', label: '' });
 
   useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      const data = event.data;
-      const command = typeof data === 'string' ? data : data?.command;
+    // vMix commands are listened to only by Design 2. The original Design 1 is not affected.
+    if (design !== 'turbo') return;
+
+    const onVmixCommand = (command: string) => {
       if (command === 'IN' || command === 'OUT') {
         setAnimationCommand(command);
         setVisible(command === 'IN');
+      } else if (command === 'TEAM_A_MINUS') {
+        setTeamACount((v) => Math.max(0, v - 1));
+      } else if (command === 'TEAM_A_PLUS') {
+        setTeamACount((v) => Math.min(7, v + 1));
+      } else if (command === 'TEAM_B_MINUS') {
+        setTeamBCount((v) => Math.max(0, v - 1));
+      } else if (command === 'TEAM_B_PLUS') {
+        setTeamBCount((v) => Math.min(7, v + 1));
       }
-      if (command === 'TEAM_A_MINUS') setTeamACount((v) => Math.max(0, v - 1));
-      if (command === 'TEAM_A_PLUS') setTeamACount((v) => Math.min(7, v + 1));
-      if (command === 'TEAM_B_MINUS') setTeamBCount((v) => Math.max(0, v - 1));
-      if (command === 'TEAM_B_PLUS') setTeamBCount((v) => Math.min(7, v + 1));
     };
-    const onStorage = (event: StorageEvent) => {
-      if (event.key !== 'kabaddi-overlay-vmix-command' || !event.newValue) return;
+
+    const events = new EventSource('/vmix/events');
+    events.onmessage = (event) => {
       try {
-        const payload = JSON.parse(event.newValue);
-        const command = payload.command;
-        if (command === 'IN' || command === 'OUT') {
-          setAnimationCommand(command);
-          setVisible(command === 'IN');
-        }
-        if (command === 'TEAM_A_MINUS') setTeamACount((v) => Math.max(0, v - 1));
-        if (command === 'TEAM_A_PLUS') setTeamACount((v) => Math.min(7, v + 1));
-        if (command === 'TEAM_B_MINUS') setTeamBCount((v) => Math.max(0, v - 1));
-        if (command === 'TEAM_B_PLUS') setTeamBCount((v) => Math.min(7, v + 1));
+        const payload = JSON.parse(event.data);
+        if (typeof payload.command === 'string') onVmixCommand(payload.command);
       } catch {
-        // Invalid command payloads are ignored.
+        // Ignore malformed vMix events.
       }
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const command = typeof event.data === 'string' ? event.data : event.data?.command;
+      if (typeof command === 'string') onVmixCommand(command);
     };
     window.addEventListener('message', onMessage);
-    window.addEventListener('storage', onStorage);
     return () => {
+      events.close();
       window.removeEventListener('message', onMessage);
-      window.removeEventListener('storage', onStorage);
     };
-  }, []);
+  }, [design]);
+
+  useEffect(() => {
+    if (design !== 'turbo') return;
+    if (animationCommand === 'IN') setVisible(true);
+    if (animationCommand === 'OUT') setVisible(false);
+  }, [animationCommand, design]);
 
   useEffect(() => {
     let socket: WebSocket | null = null;
@@ -230,6 +239,7 @@ export function OverlayScreen() {
   }, [host, port, websocketUrl]);
 
   useEffect(() => {
+    if (design !== 'exact') return;
     const onStorage = (event: StorageEvent) => {
       if (event.key === 'kabaddi-overlay-half-label') {
         setScoreboard((current) => ({
@@ -239,17 +249,17 @@ export function OverlayScreen() {
       }
     };
     return () => window.removeEventListener('storage', onStorage);
-  }, []);
+  }, [design]);
 
   useEffect(() => {
-    const label = params.get('halfLabel');
-    if (label !== null) {
+    if (design !== 'exact') return;
+    if (halfLabel !== null) {
       setScoreboard((current) => ({
         ...current,
-        center: { ...current.center, topCrownText: label },
+        center: { ...current.center, topCrownText: halfLabel },
       }));
     }
-  }, [params]);
+  }, [design, halfLabel]);
 
   const teamA = {
     id: 'A' as const,
@@ -279,8 +289,7 @@ export function OverlayScreen() {
     allOutsInflicted: 0,
     breakdown: { raid: 0, tackle: 0, bonus: 0, allOut: 0, extra: 0 },
   };
-  const phase = (scoreboard.center.topCrownText.toUpperCase().includes('2ND') ||
-    scoreboard.center.topCrownText.toUpperCase().includes('SECOND')
+  const phase = (halfLabel.toUpperCase().includes('2ND') || halfLabel.toUpperCase().includes('SECOND')
       ? 'SECOND_HALF'
       : 'FIRST_HALF') as 'FIRST_HALF' | 'SECOND_HALF';
 
@@ -296,6 +305,10 @@ export function OverlayScreen() {
             raidDurationSeconds={scoreboard.clock.durationSeconds || 30}
             raidingTeam={scoreboard.raidingTeam === 'right' ? 'B' : 'A'}
             isRaidClockRunning={scoreboard.clock.running}
+            halfLabel={halfLabel}
+            playerCountA={teamACount}
+            playerCountB={teamBCount}
+            animationCommand={animationCommand}
           />
         ) : (
           <ExactScoreboard state={scoreboard} introTrigger={animationCommand === 'IN' ? 1 : 0} />
