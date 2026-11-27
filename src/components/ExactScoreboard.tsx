@@ -11,7 +11,7 @@ interface ExactScoreboardProps {
 }
 
 const EASE_BROADCAST = [0.16, 1, 0.3, 1] as const;
-const RAIDING_IMAGE_URL = '/assets/aistudio/file_00000000ad70821195785606bba8471e_5f5acb72.png';
+const RAIDING_IMAGE_URL = './assets/aistudio/file_00000000ad70821195785606bba8471e_5f5acb72.png';
 
 const LEFT_WING_SPARKS = [
   { cx: 185, cy: 250, r: 1.8, delay: '0s' },
