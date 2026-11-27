@@ -704,8 +704,10 @@ export function BroadcastBug({
           <motion.g
             id="central-shield"
             initial={{ opacity: 0, y: -52, scale: 0.74 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.72, ease: [0.42, 0, 0.25, 1] }}
+            animate={animationCommand === 'OUT'
+              ? { opacity: 0, y: -52, scale: 0.74 }
+              : { opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.72, delay: animationCommand === 'OUT' ? 0 : 0, ease: [0.42, 0, 0.25, 1] }}
             style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
           >
             {/* Deep Outer Drop Shadow */}
@@ -1269,7 +1271,7 @@ export function BroadcastBug({
               letterSpacing="3"
               fill="#f8fafc"
             >
-              {halfLabel}
+              {halfLabel.toUpperCase()}
             </text>
             <g clipPath="url(#turbo-timer-slot-clip)">
               <motion.text
