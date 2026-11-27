@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: windows-installer-${{ github.ref }}
+  group: windows-installer-turbo-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
