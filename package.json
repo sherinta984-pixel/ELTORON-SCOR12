@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "app:dev": "concurrently -k \"npm:dev\" \"wait-on http://127.0.0.1:3000 && electron .\"",
     "electron:start": "electron .",
-    "dist:win": "npm run build && electron-builder --win nsis",
+    "dist:win": "npm run build && electron-builder --win nsis --publish never",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
@@ -64,5 +64,7 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Kabaddi Scoreboard Overlay"
     }
-  }
+  },
+  "description": "Transparent Kabaddi scoreboard overlay application for OBS Studio.",
+  "author": "SV MEDIA"
 }
