@@ -1,10 +1,64 @@
-# Kabaddi Scoreboard Overlay
+# Kabaddi Scoreboard Overlay (Windows)
 
-This project is the **OBS overlay only**. It does not provide score-entry controls, match presets, an event log, or a fullscreen operator application. Keep using the scoreboard/controller app on the other laptop to edit team names, scores, and the raid timer.
+A standalone Windows tray application that serves the existing Kabaddi SVG scoreboard as a transparent **OBS Browser Source**. It does not replace or control the Python Kabaddi scoreboard application.
 
-## How it connects
+## How it works
 
-The overlay opens one WebSocket connection to the operator laptop and listens for the same JSON fields used by the five earlier HTML overlays:
+- Enter the IP address of the computer running the existing Python scoreboard.
+- The app keeps the Python controller connection settings and starts a small local HTTP server on the streaming PC (normally port 3210).
+- Add the generated local URL as a Browser Source in OBS.
+- The OBS Browser Source connects by WebSocket to the Python scoreboard's port 8765 and receives team names, scores and timer updates.
+- The Windows app can be closed to the system tray. Its local server keeps running.
+- The graphic appears only inside OBS. It does not create an always-on-top window or cover your desktop.
+
+## Install
+
+A Windows x64 installer is built by the GitHub Actions workflow:
+
+1. Open the repository's Actions tab.
+2. Open the latest **Build Windows installer** run.
+3. Download the `Kabaddi-Scoreboard-Overlay-Windows` artifact.
+4. Extract the ZIP and run `Kabaddi-Scoreboard-Overlay-Setup-1.0.0.exe`.
+
+## Use
+
+1. Start your existing Python Kabaddi scoreboard on the operator computer. Its WebSocket server listens on port `8765`.
+2. Open **Kabaddi Scoreboard Overlay** on the streaming PC.
+3. Enter the operator computer's IPv4 address and keep the Python port at `8765`. Use `127.0.0.1` when testing both apps on the same computer.
+4. Click **Start Overlay Service** and copy the generated OBS Browser Source URL.
+5. In OBS, add a **Browser Source** and paste the URL.
+6. Set the Browser Source width and height to your canvas, for example `1920 x 1080`. Keep its background transparent.
+7. Close the connection settings window to send the app to the system tray. The Browser Source continues working in OBS.
+
+## Network requirements
+
+- Both computers must be on the same reachable local network.
+- The Python controller must listen on the LAN interface. The supplied Python script uses `0.0.0.0:8765`.
+- Allow inbound TCP port `8765` through Windows Defender Firewall on the computer running the Python controller.
+- The local overlay server binds only to `127.0.0.1`; OBS on the same streaming PC opens it through the generated URL.
+- The application tries local ports 3210 through 3230 and displays the actual Browser Source URL.
+
+## Build the Windows installer
+
+Install Node.js 22.12+ or a current Node.js 24 release.
+
+```bat
+npm install
+npm run dist:win
+```
+
+The installer is generated in the `release` folder.
+
+For app development with a live Vite server:
+
+```bat
+npm install
+npm run app:dev
+```
+
+## Data format
+
+The overlay listens for the same JSON fields already emitted by the Python scoreboard:
 
 ```json
 {
@@ -17,31 +71,4 @@ The overlay opens one WebSocket connection to the operator laptop and listens fo
 }
 ```
 
-The optional `raiding_team` field is also understood. Supported values are `left` / `team1` / `1`, `right` / `team2` / `2`, and `none` / `off`.
-
-The WebSocket server must be reachable from the OBS computer at TCP port `8765` and broadcast the JSON state to connected clients. The overlay is read-only: it receives values but never changes the controller app.
-
-## Run locally
-
-1. Install Node.js, then open this project folder in a terminal.
-2. Run `npm install`.
-3. Run `npm run dev`.
-4. Add an OBS **Browser Source** with this URL (replace the IP with the operator laptop's current LAN IPv4 address):
-
-   `http://127.0.0.1:3000/?host=192.168.220.6&port=8765`
-
-5. Set the Browser Source dimensions to your stream canvas, for example `1920 x 1080`. The page background is transparent.
-
-## Changing the operator laptop IP
-
-The previous five HTML files did not all point to the same address: the name and timer pages used `192.168.220.6`, while the two score pages used `192.168.220.4` and `192.168.220.3`. A single combined overlay must use the **one IP address of the laptop running the WebSocket server**. The app defaults to `192.168.220.6` because that address appeared on three of the five pages, but change it in the OBS URL when the operator laptop has a different address:
-
-`http://127.0.0.1:3000/?host=YOUR_OPERATOR_LAPTOP_IP&port=8765`
-
-You can also pass a complete WebSocket URL with the `ws` query parameter, for example `?ws=ws%3A%2F%2F192.168.220.6%3A8765`.
-
-Make sure the operator laptop's WebSocket server listens on the LAN interface (not only `127.0.0.1`) and that Windows Firewall allows inbound TCP port `8765`. Both laptops must be on the same reachable network.
-
-## Build
-
-Run `npm run build`. The production site is written to `dist/`. Serve that folder over HTTP and use the same OBS Browser Source URL, including the `host` and `port` query parameters.
+An optional `raiding_team` field is also supported (`left`, `right`, or `none`).
