@@ -3,18 +3,18 @@ export {};
 declare global {
   interface Window {
     kabaddiDesktop?: {
-      openOverlay: (
+      startOverlayServer: (
         host: string,
         port: number,
-      ) => Promise<{ ok: boolean; message?: string }>;
-      closeOverlay: () => Promise<{ ok: boolean; message?: string }>;
-      reportOverlayStatus: (status: {
-        connected: boolean;
-        message: string;
-      }) => void;
-      onOverlayStatus: (
-        callback: (status: { connected: boolean; message: string }) => void,
-      ) => () => void;
+      ) => Promise<{
+        ok: boolean;
+        url?: string;
+        serverPort?: number;
+        message?: string;
+      }>;
+      stopOverlayServer: () => Promise<{ ok: boolean }>;
+      copyText: (text: string) => Promise<{ ok: boolean }>;
+      onServerStopped: (callback: () => void) => () => void;
     };
   }
 }
