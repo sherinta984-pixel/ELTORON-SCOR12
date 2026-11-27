@@ -597,19 +597,6 @@ export const ExactScoreboard: React.FC<ExactScoreboardProps> = ({
             <feGaussianBlur stdDeviation="10.5" />
           </filter>
 
-          {/* Underglow gradients */}
-          <radialGradient id={`${uid}-left-underglow`} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={leftAccentColor} stopOpacity="0.88" />
-            <stop offset="55%" stopColor={leftAccentColor} stopOpacity="0.28" />
-            <stop offset="100%" stopColor={leftAccentColor} stopOpacity="0" />
-          </radialGradient>
-
-          <radialGradient id={`${uid}-right-underglow`} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={rightAccentColor} stopOpacity="0.88" />
-            <stop offset="55%" stopColor={rightAccentColor} stopOpacity="0.28" />
-            <stop offset="100%" stopColor={rightAccentColor} stopOpacity="0" />
-          </radialGradient>
-
           {/* Clip Paths */}
           <clipPath id={`${uid}-chassis-clip`}>
             <path d={fullChassisOutline} />
@@ -666,24 +653,6 @@ export const ExactScoreboard: React.FC<ExactScoreboardProps> = ({
             <circle cx="2048" cy="202" r="44" />
           </clipPath>
         </defs>
-
-        {/* Ambient Wing Underglows */}
-        <ellipse
-          cx="385"
-          cy="322"
-          rx={leftFlash || isLeftRaiding ? 350 : 290}
-          ry={leftFlash || isLeftRaiding ? 26 : 19}
-          fill={`url(#${uid}-left-underglow)`}
-          className={animate ? 'animate-glow-breathe' : undefined}
-        />
-        <ellipse
-          cx="1815"
-          cy="322"
-          rx={rightFlash || isRightRaiding ? 350 : 290}
-          ry={rightFlash || isRightRaiding ? 26 : 19}
-          fill={`url(#${uid}-right-underglow)`}
-          className={animate ? 'animate-glow-breathe' : undefined}
-        />
 
         {/* ================= LEFT ARMORED WING + FANGS + SCORE POD + RAID WINDOW ================= */}
         <motion.g
