@@ -145,49 +145,6 @@ export function BroadcastBug({
       className="relative w-full max-w-[1440px] select-none"
       style={{ perspective: '1800px' }}
     >
-      {/* Rich Stadium Team Ambient Backlights */}
-      <motion.div
-        aria-hidden="true"
-        initial={{ opacity: 0, scale: 0.65 }}
-        animate={{ opacity: 0.58, scale: 1 }}
-        transition={{ duration: 0.85, delay: 0.48, ease: 'easeInOut' }}
-        className="pointer-events-none absolute -left-8 top-1/2 -translate-y-1/2 w-[45%] h-[180%] rounded-full blur-3xl"
-        style={{
-          background:
-            'radial-gradient(circle, rgba(244, 28, 69, 0.48) 0%, rgba(190, 18, 60, 0.16) 45%, transparent 72%)',
-        }}
-      />
-      <motion.div
-        aria-hidden="true"
-        initial={{ opacity: 0, scale: 0.65 }}
-        animate={{ opacity: 0.58, scale: 1 }}
-        transition={{ duration: 0.85, delay: 0.48, ease: 'easeInOut' }}
-        className="pointer-events-none absolute -right-8 top-1/2 -translate-y-1/2 w-[45%] h-[180%] rounded-full blur-3xl"
-        style={{
-          background:
-            'radial-gradient(circle, rgba(32, 128, 255, 0.48) 0%, rgba(29, 78, 216, 0.16) 45%, transparent 72%)',
-        }}
-      />
-      <motion.div
-        aria-hidden="true"
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={{
-          opacity: isRaidClockRunning ? [0.45, 0.72, 0.45] : 0.48,
-          scale: 1,
-        }}
-        transition={{
-          opacity: { duration: isCriticalRaidTime ? 0.8 : 2.2, repeat: Infinity, ease: 'easeInOut' },
-          scale: { duration: 0.6, ease: 'easeInOut' },
-        }}
-        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[28%] h-[160%] rounded-full blur-3xl"
-        style={{
-          background:
-            isCriticalRaidTime || isDoOrDie
-              ? 'radial-gradient(circle, rgba(245, 158, 11, 0.36) 0%, rgba(239, 68, 68, 0.14) 50%, transparent 76%)'
-              : 'radial-gradient(circle, rgba(255, 212, 72, 0.25) 0%, rgba(148, 163, 184, 0.08) 48%, transparent 74%)',
-        }}
-      />
-
       {/* Wide Broadcast Glass Chassis */}
       <motion.div
         style={{
@@ -197,20 +154,6 @@ export function BroadcastBug({
         }}
         className="relative z-10 w-full aspect-[2560/340]"
       >
-        {/* Grounded Arena Floor Reflection */}
-        <motion.div
-          aria-hidden="true"
-          initial={{ scaleX: 0.14, opacity: 0 }}
-          animate={{ scaleX: 1, opacity: 0.6 }}
-          transition={{ duration: 0.94, delay: 0.42, ease: [0.42, 0, 0.25, 1] }}
-          className="pointer-events-none absolute left-[7%] right-[7%] -bottom-5 h-6 rounded-full blur-xl"
-          style={{
-            transformOrigin: 'center',
-            background:
-              'linear-gradient(90deg, rgba(244,28,69,0.34) 0%, rgba(255,206,72,0.24) 50%, rgba(32,128,255,0.34) 100%)',
-          }}
-        />
-
         {/* Rear Extruded Smoked-Glass Thickness Slab */}
         <motion.div
           aria-hidden="true"
