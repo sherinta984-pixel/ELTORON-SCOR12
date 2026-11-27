@@ -6,6 +6,8 @@ declare global {
       startOverlayServer: (
         host: string,
         port: number,
+        design: 'exact' | 'turbo',
+        halfLabel: string,
       ) => Promise<{
         ok: boolean;
         url?: string;
