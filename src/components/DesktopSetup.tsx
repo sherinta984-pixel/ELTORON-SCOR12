@@ -14,6 +14,7 @@ import {
 
 const HOST_STORAGE_KEY = 'kabaddi-overlay-controller-host';
 const PORT_STORAGE_KEY = 'kabaddi-overlay-controller-port';
+const HALF_LABEL_STORAGE_KEY = 'kabaddi-overlay-half-label';
 
 export function DesktopSetup() {
   const [host, setHost] = useState(() => {
@@ -28,6 +29,13 @@ export function DesktopSetup() {
       return localStorage.getItem(PORT_STORAGE_KEY) || '8765';
     } catch {
       return '8765';
+    }
+  });
+  const [halfLabel, setHalfLabel] = useState(() => {
+    try {
+      return localStorage.getItem(HALF_LABEL_STORAGE_KEY) ?? '1ST HALF';
+    } catch {
+      return '1ST HALF';
     }
   });
   const [serverRunning, setServerRunning] = useState(false);
@@ -61,6 +69,10 @@ export function DesktopSetup() {
       setError('Port must be a number between 1 and 65535.');
       return;
     }
+    if (halfLabel.trim().length > 18) {
+      setError('Half-time label must be 18 characters or fewer.');
+      return;
+    }
 
     if (!window.kabaddiDesktop) {
       setError('Open the installed Windows application to start its local Browser Source server.');
@@ -71,7 +83,8 @@ export function DesktopSetup() {
     setError('');
     setNotice('');
     try {
-      const result = await window.kabaddiDesktop.startOverlayServer(cleanHost, cleanPort);
+      const cleanLabel = halfLabel.trim();
+      const result = await window.kabaddiDesktop.startOverlayServer(cleanHost, cleanPort, cleanLabel);
       if (!result.ok || !result.url) {
         setError(result.message || 'Could not start the local overlay server.');
         return;
@@ -80,6 +93,7 @@ export function DesktopSetup() {
       try {
         localStorage.setItem(HOST_STORAGE_KEY, cleanHost);
         localStorage.setItem(PORT_STORAGE_KEY, String(cleanPort));
+        localStorage.setItem(HALF_LABEL_STORAGE_KEY, cleanLabel);
       } catch {
         // The URL remains available for this session if local storage is disabled.
       }
@@ -166,6 +180,19 @@ export function DesktopSetup() {
             onChange={(event) => setPort(event.target.value)}
           />
           <p className="field-help">Keep this at 8765 for your current Python scoreboard.</p>
+
+          <label className="field-label" htmlFor="half-time-label">Half-time / period label</label>
+          <input
+            id="half-time-label"
+            className="setup-input"
+            type="text"
+            maxLength={18}
+            autoComplete="off"
+            placeholder="1ST HALF, 2ND HALF, FINAL"
+            value={halfLabel}
+            onChange={(event) => setHalfLabel(event.target.value)}
+          />
+          <p className="field-help">This appears inside the centre timer shield, above the clock. You can enter any short label or leave it blank.</p>
 
           {error && <div className="error-message" role="alert">{error}</div>}
           {notice && <div className="connection-status"><Wifi size={17} /><span>{notice}</span></div>}
