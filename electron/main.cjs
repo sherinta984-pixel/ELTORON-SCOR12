@@ -65,7 +65,7 @@ function createLocalServer() {
       response.write('retry: 1000\n\n');
       if (!globalThis.__kabaddiOverlayClients) globalThis.__kabaddiOverlayClients = new Set();
       globalThis.__kabaddiOverlayClients.add(response);
-      request.on('close', () => globalThis.__kabaddiOverlayClients.delete(response));
+      response.on('close', () => globalThis.__kabaddiOverlayClients.delete(response));
       return;
     }
 
