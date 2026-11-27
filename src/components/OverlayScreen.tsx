@@ -109,10 +109,6 @@ export function OverlayScreen() {
     let reconnectTimer: number | null = null;
     let stopped = false;
 
-    const report = (connected: boolean, message: string) => {
-      window.kabaddiDesktop?.reportOverlayStatus({ connected, message });
-    };
-
     const connect = () => {
       if (stopped) return;
 
@@ -120,14 +116,12 @@ export function OverlayScreen() {
         socket = new WebSocket(websocketUrl);
       } catch (error) {
         console.error('Could not create scoreboard connection:', error);
-        report(false, 'Could not create WebSocket connection');
         reconnectTimer = window.setTimeout(connect, 2000);
         return;
       }
 
       socket.onopen = () => {
         console.info('Connected to Kabaddi controller:', websocketUrl);
-        report(true, `Connected to ${host}:${port}`);
       };
 
       socket.onmessage = (event: MessageEvent<string>) => {
@@ -169,16 +163,13 @@ export function OverlayScreen() {
           });
         } catch (error) {
           console.error('Invalid data received from Kabaddi controller:', error);
-          report(false, 'Received invalid scoreboard data');
         }
       };
 
       socket.onerror = () => {
-        report(false, `Cannot reach ${host}:${port}; retrying…`);
       };
 
       socket.onclose = () => {
-        report(false, `Disconnected from ${host}:${port}; reconnecting…`);
         if (!stopped) reconnectTimer = window.setTimeout(connect, 2000);
       };
     };
