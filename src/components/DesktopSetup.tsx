@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react';
 import {
   CheckCircle2,
-  CircleHelp,
+  Clipboard,
+  Copy,
+  ExternalLink,
+  Info,
   Monitor,
   Radio,
+  Server,
+  Square,
   Wifi,
-  WifiOff,
-  XCircle,
 } from 'lucide-react';
-
-type OverlayStatus = {
-  connected: boolean;
-  message: string;
-};
 
 const HOST_STORAGE_KEY = 'kabaddi-overlay-controller-host';
 const PORT_STORAGE_KEY = 'kabaddi-overlay-controller-port';
@@ -32,27 +30,27 @@ export function DesktopSetup() {
       return '8765';
     }
   });
-  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [serverRunning, setServerRunning] = useState(false);
+  const [sourceUrl, setSourceUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [status, setStatus] = useState<OverlayStatus>({
-    connected: false,
-    message: 'Not connected',
-  });
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    const unsubscribe = window.kabaddiDesktop?.onOverlayStatus((nextStatus) => {
-      setStatus(nextStatus);
+    const unsubscribe = window.kabaddiDesktop?.onServerStopped(() => {
+      setServerRunning(false);
+      setSourceUrl('');
+      setNotice('Local overlay server stopped.');
     });
     return () => unsubscribe?.();
   }, []);
 
-  const handleOpenOverlay = async () => {
+  const startServer = async () => {
     const cleanHost = host.trim();
     const cleanPort = Number(port);
 
     if (!cleanHost) {
-      setError('Enter the IP address of the computer running your Kabaddi scoreboard.');
+      setError('Enter the IP address of the computer running your existing Python Kabaddi scoreboard.');
       return;
     }
     if (!/^[a-zA-Z0-9.-]+$/.test(cleanHost) || cleanHost.includes('..')) {
@@ -65,16 +63,17 @@ export function DesktopSetup() {
     }
 
     if (!window.kabaddiDesktop) {
-      setError('Run the installed Windows application to open the transparent overlay window.');
+      setError('Open the installed Windows application to start its local Browser Source server.');
       return;
     }
 
     setBusy(true);
     setError('');
+    setNotice('');
     try {
-      const result = await window.kabaddiDesktop.openOverlay(cleanHost, cleanPort);
-      if (!result.ok) {
-        setError(result.message || 'Could not open the overlay window.');
+      const result = await window.kabaddiDesktop.startOverlayServer(cleanHost, cleanPort);
+      if (!result.ok || !result.url) {
+        setError(result.message || 'Could not start the local overlay server.');
         return;
       }
 
@@ -82,30 +81,35 @@ export function DesktopSetup() {
         localStorage.setItem(HOST_STORAGE_KEY, cleanHost);
         localStorage.setItem(PORT_STORAGE_KEY, String(cleanPort));
       } catch {
-        // The connection still works if local storage is unavailable.
+        // The URL remains available for this session if local storage is disabled.
       }
 
-      setOverlayOpen(true);
-      setStatus({
-        connected: false,
-        message: `Overlay opened. Connecting to ${cleanHost}:${cleanPort}…`,
-      });
+      setSourceUrl(result.url);
+      setServerRunning(true);
+      setNotice(result.message || 'Overlay page is ready for OBS.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not open overlay.');
+      setError(err instanceof Error ? err.message : 'Could not start the local overlay server.');
     } finally {
       setBusy(false);
     }
   };
 
-  const handleCloseOverlay = async () => {
+  const stopServer = async () => {
     setBusy(true);
     try {
-      await window.kabaddiDesktop?.closeOverlay();
-      setOverlayOpen(false);
-      setStatus({ connected: false, message: 'Overlay closed' });
+      await window.kabaddiDesktop?.stopOverlayServer();
+      setServerRunning(false);
+      setSourceUrl('');
+      setNotice('Local overlay server stopped.');
     } finally {
       setBusy(false);
     }
+  };
+
+  const copyUrl = async () => {
+    if (!sourceUrl || !window.kabaddiDesktop) return;
+    const result = await window.kabaddiDesktop.copyText(sourceUrl);
+    setNotice(result.ok ? 'OBS Browser Source URL copied.' : 'Could not copy URL.');
   };
 
   return (
@@ -116,23 +120,23 @@ export function DesktopSetup() {
           <div>
             <p className="eyebrow">SV MEDIA · BROADCAST TOOLS</p>
             <h1>Kabaddi Scoreboard Overlay</h1>
-            <p className="header-subtitle">Connect your existing scoreboard controller to OBS.</p>
+            <p className="header-subtitle">A background service for your OBS Browser Source.</p>
           </div>
         </header>
 
         <section className="setup-card">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">CONNECTION</p>
-              <h2>Scoreboard computer</h2>
+              <p className="eyebrow">PYTHON CONTROLLER</p>
+              <h2>Connect to scoreboard computer</h2>
             </div>
-            <span className={status.connected ? 'status-pill status-connected' : 'status-pill'}>
+            <span className={serverRunning ? 'status-pill status-connected' : 'status-pill'}>
               <span className="status-dot" />
-              {status.connected ? 'CONNECTED' : overlayOpen ? 'WAITING' : 'OFFLINE'}
+              {serverRunning ? 'SERVICE READY' : 'STOPPED'}
             </span>
           </div>
 
-          <label className="field-label" htmlFor="controller-host">IP address</label>
+          <label className="field-label" htmlFor="controller-host">Scoreboard computer IP address</label>
           <input
             id="controller-host"
             className="setup-input"
@@ -143,15 +147,15 @@ export function DesktopSetup() {
             value={host}
             onChange={(event) => setHost(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') void handleOpenOverlay();
+              if (event.key === 'Enter') void startServer();
             }}
           />
           <p className="field-help">
-            Enter the IP address of the laptop running your existing Python Kabaddi scoreboard.
-            On the same PC, use <code>127.0.0.1</code>.
+            Enter the IP of the laptop running your existing Python Kabaddi scoreboard.
+            For testing on this same PC, use <code>127.0.0.1</code>.
           </p>
 
-          <label className="field-label" htmlFor="controller-port">WebSocket port</label>
+          <label className="field-label" htmlFor="controller-port">Python WebSocket port</label>
           <input
             id="controller-port"
             className="setup-input port-input"
@@ -161,63 +165,68 @@ export function DesktopSetup() {
             value={port}
             onChange={(event) => setPort(event.target.value)}
           />
-          <p className="field-help">Your existing Python scoreboard uses port 8765.</p>
+          <p className="field-help">Keep this at 8765 for your current Python scoreboard.</p>
 
-          {error && (
-            <div className="error-message" role="alert">
-              <XCircle size={16} />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div className="connection-status">
-            {status.connected ? <Wifi size={18} /> : <WifiOff size={18} />}
-            <span>{status.message}</span>
-          </div>
+          {error && <div className="error-message" role="alert">{error}</div>}
+          {notice && <div className="connection-status"><Wifi size={17} /><span>{notice}</span></div>}
 
           <div className="action-row">
             <button
               className="primary-action"
               type="button"
-              onClick={() => void handleOpenOverlay()}
+              onClick={() => void startServer()}
               disabled={busy}
             >
-              <Monitor size={17} />
-              {busy ? 'Opening…' : overlayOpen ? 'Reconnect / Update IP' : 'Connect & Open Overlay'}
+              <Server size={17} />
+              {busy ? 'Starting…' : serverRunning ? 'Update IP / Refresh URL' : 'Start Overlay Service'}
             </button>
             <button
               className="secondary-action"
               type="button"
-              onClick={() => void handleCloseOverlay()}
-              disabled={busy || !overlayOpen}
+              onClick={() => void stopServer()}
+              disabled={busy || !serverRunning}
+              title="Stop the local OBS Browser Source server"
             >
-              Close
+              <Square size={15} /> Stop
             </button>
           </div>
+
+          {sourceUrl && (
+            <div className="browser-url-panel">
+              <div className="browser-url-heading">
+                <span>OBS BROWSER SOURCE URL</span>
+                <span className="url-ready"><CheckCircle2 size={13} /> READY</span>
+              </div>
+              <div className="browser-url-value">{sourceUrl}</div>
+              <button className="copy-url-button" type="button" onClick={() => void copyUrl()}>
+                <Copy size={15} /> Copy OBS URL
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="setup-card howto-card">
           <div className="section-heading">
             <div>
               <p className="eyebrow">OBS STUDIO</p>
-              <h2>Add it to your stream</h2>
+              <h2>Use it in your stream</h2>
             </div>
             <Monitor size={21} className="muted-icon" />
           </div>
           <ol className="steps-list">
-            <li><span>1</span><p>Start your existing Python Kabaddi scoreboard on the controller laptop.</p></li>
-            <li><span>2</span><p>Enter that computer's IP address above and click <strong>Connect & Open Overlay</strong>.</p></li>
-            <li><span>3</span><p>In OBS, add a <strong>Window Capture</strong> source.</p></li>
-            <li><span>4</span><p>Select <strong>Kabaddi Scoreboard Overlay</strong>. Keep it above your camera or match video source.</p></li>
+            <li><span>1</span><p>Start your existing Python Kabaddi scoreboard on the operator computer.</p></li>
+            <li><span>2</span><p>Enter its IP address above, keep port <strong>8765</strong>, then click <strong>Start Overlay Service</strong>.</p></li>
+            <li><span>3</span><p>Copy the generated URL and add a <strong>Browser Source</strong> in OBS. Paste the URL there.</p></li>
+            <li><span>4</span><p>Set Browser Source dimensions to <strong>1920 × 1080</strong> and keep its background transparent.</p></li>
           </ol>
           <div className="tip-box">
-            <CircleHelp size={17} />
-            <p>Both computers must be on the same reachable network. Allow inbound TCP port 8765 through Windows Firewall on the controller laptop.</p>
+            <Info size={17} />
+            <p>The scoreboard graphic will appear inside OBS only. It will not cover your Windows desktop. Close this settings window to send the app to the system tray; the local server will keep running.</p>
           </div>
         </section>
 
         <footer className="setup-footer">
-          <span><CheckCircle2 size={14} /> Overlay only — no score controls or duplicate scoreboard</span>
+          <span><CheckCircle2 size={14} /> Overlay only · No duplicate scoreboard controller</span>
           <span>SV MEDIA</span>
         </footer>
       </div>
